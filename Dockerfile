@@ -17,6 +17,8 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 COPY . .
 
+COPY .env.example .env
+
 RUN composer install --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-reqs
 
 RUN php artisan key:generate --force
