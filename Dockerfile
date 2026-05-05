@@ -19,6 +19,8 @@ COPY . .
 
 RUN composer install --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-reqs
 
+RUN php artisan key:generate --force
+
 EXPOSE 8000
 
 CMD ["php", "artisan", "serve", "--host=0.0.0.0"]
