@@ -8,7 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     permissions:
       packages: write
       contents: read
@@ -20,19 +19,44 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.repository_owner }}" --password-stdin
 
       - name: Build image
-        run: docker build -t ghcr.io/${{ github.repository_owner }}/deploy-demo:latest .
+        run: |
+          docker build \
+            -t ghcr.io/${{ github.repository_owner }}/deploy-demo:${{ github.sha }} \
+            -t ghcr.io/${{ github.repository_owner }}/deploy-demo:latest \
+            .
 
       - name: Push image
-        run: docker push ghcr.io/${{ github.repository_owner }}/deploy-demo:latest
+        run: |
+          docker push ghcr.io/${{ github.repository_owner }}/deploy-demo:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository_owner }}/deploy-demo:latest
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      packages: read
+
+    steps:
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.repository_owner }}" --password-stdin
 
       - name: Run tests
-        run: docker run --rm ghcr.io/${{ github.repository_owner }}/deploy-demo:latest php artisan test
+        run: docker run --rm ghcr.io/${{ github.repository_owner }}/deploy-demo:${{ github.sha }} php artisan test
 
   deploy:
     runs-on: ubuntu-latest
-    needs: build
+    needs: test
+    environment: production
 
     steps:
+      - name: Update Railway image tag
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query": "mutation { serviceInstanceUpdate(environmentId: \"3a472cae-76af-4827-8e3c-dd06623ae6bb\", serviceId: \"1da0ab5a-6f86-4355-b73a-15f5a16edc32\", input: { source: { image: \"ghcr.io/${{ github.repository_owner }}/deploy-demo:${{ github.sha }}\" } }) }"}' \
+            https://backboard.railway.app/graphql/v2
+
       - name: Deploy to Railway
         run: |
           curl -X POST \

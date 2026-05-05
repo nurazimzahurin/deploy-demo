@@ -1,0 +1,30 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Commit SHA to rollback to'
+        required: true
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Update Railway image tag
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query": "mutation { serviceInstanceUpdate(environmentId: \"3a472cae-76af-4827-8e3c-dd06623ae6bb\", serviceId: \"1da0ab5a-6f86-4355-b73a-15f5a16edc32\", input: { source: { image: \"ghcr.io/${{ github.repository_owner }}/deploy-demo:${{ github.event.inputs.image_tag }}\" } }) }"}' \
+            https://backboard.railway.app/graphql/v2
+
+      - name: Deploy
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query": "mutation { serviceInstanceDeploy(environmentId: \"3a472cae-76af-4827-8e3c-dd06623ae6bb\", serviceId: \"1da0ab5a-6f86-4355-b73a-15f5a16edc32\") }"}' \
+            https://backboard.railway.app/graphql/v2
