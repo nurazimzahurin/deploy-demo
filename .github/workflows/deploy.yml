@@ -41,7 +41,11 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.repository_owner }}" --password-stdin
 
       - name: Run tests
-        run: docker run --rm ghcr.io/${{ github.repository_owner }}/deploy-demo:${{ github.sha }} php artisan test
+        run: |
+          docker run --rm \
+            --entrypoint php \
+            ghcr.io/${{ github.repository_owner }}/deploy-demo:${{ github.sha }} \
+            artisan test
 
   deploy:
     runs-on: ubuntu-latest
