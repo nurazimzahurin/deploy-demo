@@ -1,6 +1,7 @@
-FROM php:8.2-fpm
+# Stage 1: Install composer dependencies
+FROM php:8.2-fpm AS vendor
 
-WORKDIR /app
+WORKDIR /tmp/app
 
 RUN apt-get update && apt-get install -y \
     git \
@@ -11,18 +12,39 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip
 
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd dom
-
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-COPY . .
+COPY composer.json composer.lock ./
 
-COPY .env.example .env
+RUN composer install \
+    --no-dev \
+    --no-scripts \
+    --no-interaction \
+    --prefer-dist \
+    --ignore-platform-reqs
 
-RUN composer install --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-reqs
+# Stage 2: Final production image
+FROM php:8.2-fpm
 
-RUN php artisan key:generate --force
+WORKDIR /app
 
-EXPOSE 8000
+RUN apt-get update && apt-get install -y \
+    nginx \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd dom \
+    && rm -rf /var/lib/apt/lists/*
 
-CMD ["php", "artisan", "serve", "--host=0.0.0.0"]
+COPY . /app
+COPY --from=vendor /tmp/app/vendor /app/vendor
+
+COPY conf/nginx.conf /etc/nginx/nginx.conf
+COPY conf/nginx-site.conf /etc/nginx/sites-enabled/default
+COPY conf/entrypoint.sh /entrypoint.sh
+
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 80
+
+ENTRYPOINT ["/entrypoint.sh"]
