@@ -1,3 +1,6 @@
 [deploy]
 healthcheckPath = "/healthz"
 healthcheckTimeout = 30
+
+[[services]]
+internalPort = 80
