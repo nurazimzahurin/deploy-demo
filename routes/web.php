@@ -21,6 +21,10 @@ Route::get('/test', function () {
     return env('APP_NAME', null);
 });
 
+Route::get('/healthz', function () {
+    return response()->json(['status' => 'ok']);
+});
+
 Route::get('/1', function () {
     return "One";
 });
