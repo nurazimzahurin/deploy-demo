@@ -20,3 +20,11 @@ Route::get('/', function () {
 Route::get('/test', function () {
     return env('APP_NAME', null);
 });
+
+Route::get('/1', function () {
+    return "One";
+});
+
+// Route::get('/2', function () {
+//     return "Two";
+// });
