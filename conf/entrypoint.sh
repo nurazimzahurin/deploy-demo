@@ -1,8 +1,4 @@
 #!/bin/sh
 
-php artisan config:clear
-php artisan config:cache
-
-php-fpm -D
-
-nginx -g "daemon off;"
+nohup php-fpm > /dev/stdout 2>/dev/stderr &
+nginx -g "daemon off;" > /dev/stdout 2>/dev/stderr
