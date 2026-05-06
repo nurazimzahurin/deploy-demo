@@ -1,0 +1,53 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches:
+      - staging
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.repository_owner }}" --password-stdin
+
+      - name: Build image
+        run: |
+          docker build \
+            -t ghcr.io/${{ github.repository_owner }}/deploy-demo:staging-${{ github.sha }} \
+            -t ghcr.io/${{ github.repository_owner }}/deploy-demo:staging \
+            .
+
+      - name: Push image
+        run: |
+          docker push ghcr.io/${{ github.repository_owner }}/deploy-demo:staging-${{ github.sha }}
+          docker push ghcr.io/${{ github.repository_owner }}/deploy-demo:staging
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment: staging
+
+    steps:
+      - name: Update Railway image tag
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query": "mutation { serviceInstanceUpdate(environmentId: \"9ac489d4-315b-463d-9131-4d4c42d83e1d\", serviceId: \"1da0ab5a-6f86-4355-b73a-15f5a16edc32\", input: { source: { image: \"ghcr.io/${{ github.repository_owner }}/deploy-demo:staging-${{ github.sha }}\" } }) }"}' \
+            https://backboard.railway.app/graphql/v2
+
+      - name: Deploy to Railway
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query": "mutation { serviceInstanceDeploy(environmentId: \"9ac489d4-315b-463d-9131-4d4c42d83e1d\", serviceId: \"1da0ab5a-6f86-4355-b73a-15f5a16edc32\") }"}' \
+            https://backboard.railway.app/graphql/v2
