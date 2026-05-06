@@ -4,10 +4,9 @@ services:
   app:
     build: .
     ports:
-      - "8000:8000"
+      - "8000:80"
     volumes:
       - .:/app
     environment:
       - APP_KEY=base64:DummyKeyForNow12345678901234567890=
       - APP_DEBUG=true
-    command: php artisan serve --host=0.0.0.0
