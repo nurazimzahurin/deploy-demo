@@ -25,6 +25,6 @@ Route::get('/1', function () {
     return "One";
 });
 
-// Route::get('/2', function () {
-//     return "Two";
-// });
+Route::get('/2', function () {
+    return "Two";
+});
