@@ -7,6 +7,5 @@ services:
       - "8000:80"
     volumes:
       - .:/app
-    environment:
-      - APP_KEY=base64:DummyKeyForNow12345678901234567890=
-      - APP_DEBUG=true
+    env_file:
+      - .env
