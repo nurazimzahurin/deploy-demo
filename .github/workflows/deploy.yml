@@ -48,7 +48,7 @@ jobs:
 
           NEW_TASK_DEF=$(echo $TASK_DEF | jq \
             --arg IMAGE "867344443810.dkr.ecr.ap-southeast-1.amazonaws.com/deploy-demo:${{ github.sha }}" \
-            '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .placementConstraints, .compatibilities, .registeredAt, .registeredBy)')
+            '(.containerDefinitions[].image) = $IMAGE | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .placementConstraints, .compatibilities, .registeredAt, .registeredBy)')
 
           aws ecs register-task-definition \
             --region ap-southeast-1 \
