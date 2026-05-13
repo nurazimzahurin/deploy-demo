@@ -38,12 +38,37 @@ jobs:
     environment: production
 
     steps:
-      - name: Deploy to ECS
+      - name: Register new task definition revision
         run: |
+          TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition deploy-demo \
+            --region ap-southeast-1 \
+            --query 'taskDefinition' \
+            --output json)
+
+          NEW_TASK_DEF=$(echo $TASK_DEF | jq \
+            --arg IMAGE "867344443810.dkr.ecr.ap-southeast-1.amazonaws.com/deploy-demo:${{ github.sha }}" \
+            '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .placementConstraints, .compatibilities, .registeredAt, .registeredBy)')
+
+          aws ecs register-task-definition \
+            --region ap-southeast-1 \
+            --cli-input-json "$NEW_TASK_DEF"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Update ECS service to new revision
+        run: |
+          REVISION=$(aws ecs describe-task-definition \
+            --task-definition deploy-demo \
+            --region ap-southeast-1 \
+            --query 'taskDefinition.revision' \
+            --output text)
+
           aws ecs update-service \
             --cluster deploy-demo \
             --service deploy-demo-service \
-            --force-new-deployment \
+            --task-definition deploy-demo:$REVISION \
             --region ap-southeast-1
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
