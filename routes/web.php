@@ -32,3 +32,7 @@ Route::get('/1', function () {
 Route::get('/2', function () {
     return "Two";
 });
+
+Route::get('/3', function () {
+    return "Three";
+});
