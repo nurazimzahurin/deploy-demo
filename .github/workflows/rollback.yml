@@ -13,18 +13,38 @@ jobs:
     environment: production
 
     steps:
-      - name: Update Railway image tag
+      - name: Register rollback task definition
         run: |
-          curl -X POST \
-            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d '{"query": "mutation { serviceInstanceUpdate(environmentId: \"3a472cae-76af-4827-8e3c-dd06623ae6bb\", serviceId: \"1da0ab5a-6f86-4355-b73a-15f5a16edc32\", input: { source: { image: \"ghcr.io/${{ github.repository_owner }}/deploy-demo:${{ github.event.inputs.image_tag }}\" } }) }"}' \
-            https://backboard.railway.app/graphql/v2
+          TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition deploy-demo \
+            --region ap-southeast-1 \
+            --query 'taskDefinition' \
+            --output json)
 
-      - name: Deploy
+          NEW_TASK_DEF=$(echo $TASK_DEF | jq \
+            --arg IMAGE "867344443810.dkr.ecr.ap-southeast-1.amazonaws.com/deploy-demo:${{ github.event.inputs.image_tag }}" \
+            '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .placementConstraints, .compatibilities, .registeredAt, .registeredBy)')
+
+          aws ecs register-task-definition \
+            --region ap-southeast-1 \
+            --cli-input-json "$NEW_TASK_DEF"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Update ECS service to rollback revision
         run: |
-          curl -X POST \
-            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d '{"query": "mutation { serviceInstanceDeploy(environmentId: \"3a472cae-76af-4827-8e3c-dd06623ae6bb\", serviceId: \"1da0ab5a-6f86-4355-b73a-15f5a16edc32\") }"}' \
-            https://backboard.railway.app/graphql/v2
+          REVISION=$(aws ecs describe-task-definition \
+            --task-definition deploy-demo \
+            --region ap-southeast-1 \
+            --query 'taskDefinition.revision' \
+            --output text)
+
+          aws ecs update-service \
+            --cluster deploy-demo \
+            --service deploy-demo-service \
+            --task-definition deploy-demo:$REVISION \
+            --region ap-southeast-1
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
