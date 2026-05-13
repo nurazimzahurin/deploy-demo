@@ -57,6 +57,46 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
+      - name: Run migrations
+        run: |
+          REVISION=$(aws ecs describe-task-definition \
+            --task-definition deploy-demo \
+            --region ap-southeast-1 \
+            --query 'taskDefinition.revision' \
+            --output text)
+
+          TASK_ARN=$(aws ecs run-task \
+            --cluster deploy-demo \
+            --task-definition deploy-demo:$REVISION \
+            --overrides '{"containerOverrides":[{"name":"deploy-demo","command":["php","artisan","migrate","--force"]}]}' \
+            --region ap-southeast-1 \
+            --query 'tasks[0].taskArn' \
+            --output text)
+
+          echo "Migration task ARN: $TASK_ARN"
+
+          aws ecs wait tasks-stopped \
+            --cluster deploy-demo \
+            --tasks $TASK_ARN \
+            --region ap-southeast-1
+
+          EXIT_CODE=$(aws ecs describe-tasks \
+            --cluster deploy-demo \
+            --tasks $TASK_ARN \
+            --region ap-southeast-1 \
+            --query 'tasks[0].containers[0].exitCode' \
+            --output text)
+
+          echo "Migration exit code: $EXIT_CODE"
+
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "Migration failed"
+            exit 1
+          fi
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
       - name: Update ECS service to new revision
         run: |
           REVISION=$(aws ecs describe-task-definition \
